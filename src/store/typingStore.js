@@ -2,7 +2,8 @@ import { create } from 'zustand'
 
 const useTypingStore = create((set, get) => ({
   // 基本状态
-  mode: 'chinese', // 'chinese' | 'english' | 'code' | 'rhythm'
+  mode: 'classic', // 'classic' | 'rhythm'
+  classicSubMode: 'chinese', // 'chinese' | 'english' | 'code' - 经典模式下的子模式
   isTyping: false,
   isFinished: false,
   startTime: null,
@@ -26,6 +27,7 @@ const useTypingStore = create((set, get) => ({
   
   // 动作
   setMode: (mode) => set({ mode }),
+  setClassicSubMode: (subMode) => set({ classicSubMode: subMode }),
   
   setCurrentText: (text) => set({ 
     currentText: text,
@@ -58,7 +60,7 @@ const useTypingStore = create((set, get) => ({
     const correctChars = input.split('').filter((char, index) => {
       if (index >= currentText.length) return false
       
-      if (state.mode === 'chinese') {
+      if (state.classicSubMode === 'chinese') {
         // 中文模式：英文标点符号与中文标点符号视为相同
         const sourceChar = currentText[index]
         const punctuationMap = {
@@ -76,7 +78,7 @@ const useTypingStore = create((set, get) => ({
         
         return punctuationMap[char] === sourceChar || char === sourceChar
       } else {
-        // 英文模式：严格匹配
+        // 英文/代码模式：严格匹配
         const sourceChar = currentText[index]
         return char === sourceChar
       }

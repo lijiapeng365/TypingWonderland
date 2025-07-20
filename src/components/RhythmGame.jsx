@@ -2,7 +2,13 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import useTypingStore from '../store/typingStore'
 
 const RhythmGame = () => {
-  const { mode, isFinished } = useTypingStore()
+  const { mode } = useTypingStore()
+
+  // 浏览器检测
+  const isFirefox = () => {
+    return navigator.userAgent.toLowerCase().includes('firefox')
+  }
+
   const [gameState, setGameState] = useState({
     score: 0,
     combo: 0,
@@ -13,7 +19,7 @@ const RhythmGame = () => {
     isPlaying: false,
     gameTime: 0
   })
-  
+
   // 新的状态驱动动画系统
   const [fallingNotes, setFallingNotes] = useState([])
   const [recentHits, setRecentHits] = useState([])
@@ -23,7 +29,7 @@ const RhythmGame = () => {
   const gameStartTime = useRef(null)
   const noteIdCounter = useRef(0)
   const isPlayingRef = useRef(false) // 添加这个ref来避免依赖问题
-  
+
   // 游戏配置
   const GAME_CONFIG = {
     noteSpeed: 200, // 像素/秒
@@ -34,20 +40,20 @@ const RhythmGame = () => {
     badRange: 100, // Bad判定范围（像素）
     gameDuration: 60000 // 游戏时长（毫秒）
   }
-  
+
   // 可能的按键 - 包含所有键盘可打字字符
   const KEYS = [
     // 字母
-    'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 
+    'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
     'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
     // 数字
     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
     // 常用标点符号
-    '.', ',', '?', '!', ';', ':', "'", '"', '-', '_', '(', ')', '[', ']', 
+    '.', ',', '?', '!', ';', ':', "'", '"', '-', '_', '(', ')', '[', ']',
     '{', '}', '/', '\\', '|', '@', '#', '$', '%', '^', '&', '*', '+', '=',
     '`', '~', '<', '>', ' '
   ]
-  
+
   // 生成随机音符 - 新的状态驱动版本
   const generateNote = useCallback(() => {
     const key = KEYS[Math.floor(Math.random() * KEYS.length)]
@@ -60,7 +66,7 @@ const RhythmGame = () => {
       timestamp: performance.now()
     }
   }, [])
-  
+
   // 开始游戏 - 新的状态驱动版本
   const startGame = () => {
     setGameState(prev => ({
@@ -82,7 +88,7 @@ const RhythmGame = () => {
     noteIdCounter.current = 0
     isPlayingRef.current = true // 同步更新ref
   }
-  
+
   // 结束游戏 - 新的状态驱动版本
   const endGame = useCallback(() => {
     setGameState(prev => ({ ...prev, isPlaying: false }))
@@ -91,18 +97,18 @@ const RhythmGame = () => {
       cancelAnimationFrame(animationRef.current)
     }
   }, [])
-  
+
   // 判定音符命中
   const judgeHit = (note, currentTime) => {
     if (!gameAreaRef.current) return null
-    
+
     const gameHeight = gameAreaRef.current.clientHeight
     const judgeLineY = gameHeight * GAME_CONFIG.judgeLinePosition
     const distance = Math.abs(note.y - judgeLineY)
-    
+
     let judgment = null
     let score = 0
-    
+
     if (distance <= GAME_CONFIG.perfectRange) {
       judgment = 'PERFECT'
       score = 300
@@ -113,17 +119,17 @@ const RhythmGame = () => {
       judgment = 'BAD'
       score = 100
     }
-    
+
     return { judgment, score, distance }
   }
-  
-  // 处理按键 - 新的状态驱动版本
+
+  // 处理按键 - 使用ref避免依赖问题
   const handleKeyPress = useCallback((event) => {
-    if (!gameState.isPlaying) return
-    
+    if (!isPlayingRef.current) return
+
     // 获取按下的键
     let pressedKey = event.key
-    
+
     // 处理特殊键
     if (pressedKey === ' ') {
       pressedKey = ' ' // 空格键
@@ -132,79 +138,90 @@ const RhythmGame = () => {
     } else {
       return // 忽略功能键等
     }
-    
+
     if (!KEYS.includes(pressedKey)) return
-    
+
     event.preventDefault()
-    
+
     // 查找最接近判定线的对应按键音符
     const currentTime = performance.now()
-    const targetNotes = fallingNotes.filter(note => note.key === pressedKey)
-    
-    if (targetNotes.length === 0) {
-      // 没有对应音符，扣分
-      setGameState(prev => ({
-        ...prev,
-        score: Math.max(0, prev.score - 50),
-        combo: 0
-      }))
-      
-      setRecentHits(prev => [...prev, {
-        id: `miss_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        judgment: 'MISS',
-        x: 50, // 居中显示
-        timestamp: currentTime
-      }])
-      return
-    }
-    
-    // 找到最接近判定线的音符
-    const gameHeight = gameAreaRef.current?.clientHeight || 450
-    const judgeLineY = gameHeight * GAME_CONFIG.judgeLinePosition
-    
-    const closestNote = targetNotes.reduce((closest, note) => {
-      const currentDistance = Math.abs(note.y - judgeLineY)
-      const closestDistance = Math.abs(closest.y - judgeLineY)
-      return currentDistance < closestDistance ? note : closest
+
+    setFallingNotes(prevNotes => {
+      const targetNotes = prevNotes.filter(note => note.key === pressedKey)
+
+      if (targetNotes.length === 0) {
+        // 没有对应音符，扣分
+        setGameState(prev => ({
+          ...prev,
+          score: Math.max(0, prev.score - 50),
+          combo: 0
+        }))
+
+        setRecentHits(prev => [...prev, {
+          id: `miss_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          judgment: 'MISS',
+          x: 50, // 居中显示
+          timestamp: currentTime
+        }])
+        return prevNotes
+      }
+
+      // 找到最接近判定线的音符
+      const gameHeight = gameAreaRef.current?.clientHeight || 450
+      const judgeLineY = gameHeight * GAME_CONFIG.judgeLinePosition
+
+      const closestNote = targetNotes.reduce((closest, note) => {
+        const currentDistance = Math.abs(note.y - judgeLineY)
+        const closestDistance = Math.abs(closest.y - judgeLineY)
+        return currentDistance < closestDistance ? note : closest
+      })
+
+      const hitResult = judgeHit(closestNote, currentTime)
+
+      if (hitResult && hitResult.judgment) {
+        // 命中音符，从状态中移除
+        const newNotes = prevNotes.filter(note => note.id !== closestNote.id)
+
+        setGameState(prev => {
+          const newCombo = prev.combo + 1
+          const comboBonus = Math.floor(newCombo / 10) * 50
+          const totalScore = hitResult.score + comboBonus
+
+          return {
+            ...prev,
+            score: prev.score + totalScore,
+            combo: newCombo,
+            maxCombo: Math.max(prev.maxCombo, newCombo),
+            hitNotes: prev.hitNotes + 1
+          }
+        })
+
+        setRecentHits(prev => [...prev, {
+          id: `hit_${closestNote.id}`,
+          judgment: hitResult.judgment,
+          x: closestNote.x,
+          timestamp: currentTime,
+          score: hitResult.score
+        }])
+
+        return newNotes
+      }
+
+      return prevNotes
     })
-    
-    const hitResult = judgeHit(closestNote, currentTime)
-    
-    if (hitResult && hitResult.judgment) {
-      // 命中音符
-      setFallingNotes(prev => prev.filter(note => note.id !== closestNote.id))
-      
-      const newCombo = gameState.combo + 1
-      const comboBonus = Math.floor(newCombo / 10) * 50
-      const totalScore = hitResult.score + comboBonus
-      
-      setGameState(prev => ({
-        ...prev,
-        score: prev.score + totalScore,
-        combo: newCombo,
-        maxCombo: Math.max(prev.maxCombo, newCombo),
-        hitNotes: prev.hitNotes + 1
-      }))
-      
-      setRecentHits(prev => [...prev, {
-        id: `hit_${closestNote.id}`,
-        judgment: hitResult.judgment,
-        x: closestNote.x,
-        timestamp: currentTime,
-        score: totalScore
-      }])
-    }
-  }, [gameState.isPlaying, gameState.combo, fallingNotes])
-  
+  }, [])
+
   // 设置键盘监听
   useEffect(() => {
     window.addEventListener('keydown', handleKeyPress)
     return () => window.removeEventListener('keydown', handleKeyPress)
   }, [handleKeyPress])
-  
-  // 全新的状态驱动游戏循环 - 修复版本
+
+  // 游戏循环 - 完全独立的版本
   useEffect(() => {
     if (!gameState.isPlaying) return
+
+    let animationId = null
 
     const gameLoop = () => {
       // 使用ref检查状态，避免依赖问题
@@ -259,31 +276,79 @@ const RhythmGame = () => {
       // 更新游戏时间
       setGameState(prev => ({ ...prev, gameTime }))
 
-      // 继续循环 - 使用ref检查状态
+      // 继续循环
       if (isPlayingRef.current) {
-        animationRef.current = requestAnimationFrame(gameLoop)
+        animationId = requestAnimationFrame(gameLoop)
       }
     }
 
-    animationRef.current = requestAnimationFrame(gameLoop)
+    // 启动游戏循环
+    animationId = requestAnimationFrame(gameLoop)
 
     return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current)
+      if (animationId) {
+        cancelAnimationFrame(animationId)
       }
     }
-  }, [gameState.isPlaying]) // 保持最小依赖
-  
+  }, [gameState.isPlaying, endGame, generateNote]) // 明确依赖
+
   // 条件渲染检查必须在所有hooks之后
   if (mode !== 'rhythm') return null
-  
+
+  // 如果不是 Firefox 浏览器，显示提示信息
+  if (!isFirefox()) {
+    return (
+      <div className="kawaii-card">
+        <div className="mb-6">
+          <h3 className="text-lg font-semibold text-gray-700 mb-4 text-center">
+            ♪ 音游模式
+          </h3>
+
+          <div className="text-center py-12">
+            <div className="mb-6">
+              <div className="text-6xl mb-4">🦊</div>
+              <h3 className="text-2xl font-bold text-gray-700 mb-4">需要 Firefox 浏览器</h3>
+              <p className="text-gray-600 mb-6 leading-relaxed">
+                音游模式由于动画兼容性问题，目前仅支持 Firefox 浏览器。<br />
+                请使用 Firefox 浏览器来体验完整的音游打字练习功能。
+              </p>
+            </div>
+
+            <div className="bg-orange-50 border border-orange-200 rounded-2xl p-6 mb-6">
+              <h4 className="font-semibold text-orange-800 mb-3">为什么需要 Firefox？</h4>
+              <div className="text-sm text-orange-700 space-y-2">
+                <p>• Chrome/Edge 等浏览器在处理高频率动画时存在性能问题</p>
+                <p>• Firefox 对 requestAnimationFrame 的优化更适合音游场景</p>
+                <p>• 确保最佳的游戏体验和流畅的音符下落动画</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <a
+                href="https://www.mozilla.org/firefox/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block kawaii-button bg-orange-500 hover:bg-orange-600 text-white border-orange-500"
+              >
+                下载 Firefox 浏览器
+              </a>
+              <p className="text-sm text-gray-500">
+                或者您可以尝试其他打字练习模式：中文、英文、代码模式
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="kawaii-card">
       <div className="mb-6">
         <h3 className="text-lg font-semibold text-gray-700 mb-4 text-center">
           ♪ 音游模式
         </h3>
-        
+
         {/* 游戏统计 */}
         <div className="flex justify-between items-center mb-4 text-sm">
           <div className="flex space-x-4">
@@ -296,19 +361,19 @@ const RhythmGame = () => {
             命中率: {gameState.totalNotes > 0 ? Math.round((gameState.hitNotes / gameState.totalNotes) * 100) : 100}%
           </div>
         </div>
-        
+
         {/* 游戏区域 */}
-        <div 
+        <div
           ref={gameAreaRef}
           className="relative bg-gradient-to-b from-purple-100 to-pink-100 rounded-2xl border-2 border-gray-200 overflow-hidden"
           style={{ height: '450px' }}
         >
           {/* 判定线 */}
-          <div 
+          <div
             className="absolute left-0 right-0 h-1 bg-kawaii-orange shadow-lg z-10"
             style={{ top: `${GAME_CONFIG.judgeLinePosition * 100}%` }}
           />
-          
+
           {/* 下落的音符 */}
           {fallingNotes.map(note => (
             <div
@@ -322,17 +387,16 @@ const RhythmGame = () => {
               {note.key === ' ' ? '␣' : note.key}
             </div>
           ))}
-          
+
           {/* 命中效果 */}
           {recentHits.map(hit => (
             <div
               key={hit.id}
-              className={`rhythm-hit-effect ${
-                hit.judgment === 'PERFECT' ? 'rhythm-perfect' :
+              className={`rhythm-hit-effect ${hit.judgment === 'PERFECT' ? 'rhythm-perfect' :
                 hit.judgment === 'GOOD' ? 'rhythm-good' :
-                hit.judgment === 'BAD' ? 'rhythm-bad' :
-                'rhythm-miss'
-              }`}
+                  hit.judgment === 'BAD' ? 'rhythm-bad' :
+                    'rhythm-miss'
+                }`}
               style={{
                 left: `${hit.x}%`,
                 top: `${GAME_CONFIG.judgeLinePosition * 100 - 10}%`
@@ -342,7 +406,7 @@ const RhythmGame = () => {
               {hit.score && <div className="text-sm">+{hit.score}</div>}
             </div>
           ))}
-          
+
           {/* 游戏开始/结束界面 */}
           {!gameState.isPlaying && (
             <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
@@ -381,7 +445,7 @@ const RhythmGame = () => {
             </div>
           )}
         </div>
-        
+
         {/* 键盘提示 */}
         <div className="mt-4">
           <div className="text-center text-sm text-gray-600 mb-2">
@@ -402,7 +466,7 @@ const RhythmGame = () => {
             </div>
           </div>
         </div>
-        
+
         {/* 操作提示 */}
         <div className="mt-4 text-center">
           <p className="text-sm text-gray-500">

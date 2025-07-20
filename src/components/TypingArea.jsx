@@ -1,6 +1,7 @@
 import React from 'react'
 import useTypingStore from '../store/typingStore'
 import RhythmGame from './RhythmGame'
+import ClassicSubModeSelector from './ClassicSubModeSelector'
 
 const TypingArea = () => {
   const { 
@@ -8,6 +9,7 @@ const TypingArea = () => {
     userInput, 
     currentIndex, 
     mode, 
+    classicSubMode,
     updateInput, 
     isFinished 
   } = useTypingStore()
@@ -43,7 +45,7 @@ const TypingArea = () => {
       if (index < userInput.length) {
         // 已输入的字符
         const userChar = userInput[index]
-        const isCorrect = checkCharacterMatch(userChar, char, mode)
+        const isCorrect = checkCharacterMatch(userChar, char, classicSubMode)
         className = isCorrect ? 'character-correct' : 'character-incorrect'
       } else if (index === currentIndex) {
         // 当前要输入的字符
@@ -59,8 +61,8 @@ const TypingArea = () => {
   }
   
   // 检查字符匹配
-  const checkCharacterMatch = (userChar, sourceChar, mode) => {
-    if (mode === 'chinese') {
+  const checkCharacterMatch = (userChar, sourceChar, currentMode) => {
+    if (currentMode === 'chinese') {
       // 中文模式：英文标点符号与中文标点符号视为相同
       const punctuationMap = {
         ',': '，',
@@ -87,10 +89,11 @@ const TypingArea = () => {
     <div className="kawaii-card">
       <div className="mb-6">
         <h3 className="text-lg font-semibold text-gray-700 mb-4 text-center">
-          {mode === 'chinese' && '🇨🇳 中文练习'}
-          {mode === 'english' && '🇺🇸 English Practice'}
-          {mode === 'code' && '💻 代码练习'}
+          ✨ 经典
         </h3>
+        
+        {/* 经典模式子选项 */}
+        <ClassicSubModeSelector />
         
         {/* 文本显示区域 */}
         <div className="typing-text p-6 bg-gray-50 rounded-2xl border-2 border-gray-200 min-h-[200px] leading-loose whitespace-pre-wrap break-words">
@@ -111,9 +114,9 @@ const TypingArea = () => {
         onChange={handleInputChange}
         className="w-full p-4 border-2 border-kawaii-orange rounded-xl text-lg focus:outline-none focus:ring-4 focus:ring-kawaii-orange/30 transition-all duration-200"
         placeholder={
-          mode === 'chinese' 
+          classicSubMode === 'chinese' 
             ? '开始输入中文...' 
-            : mode === 'english'
+            : classicSubMode === 'english'
             ? 'Start typing in English...'
             : '开始输入代码...'
         }
@@ -125,9 +128,9 @@ const TypingArea = () => {
       {/* 提示信息 */}
       <div className="mt-4 text-center">
         <p className="text-sm text-gray-500">
-          {mode === 'chinese' && '💡 提示：中文模式下，英文标点符号会自动匹配中文标点'}
-          {mode === 'english' && '💡 Tip: Focus on accuracy first, then speed will follow'}
-          {mode === 'code' && '💡 提示：注意代码的语法符号和缩进'}
+          {classicSubMode === 'chinese' && '💡 提示：中文模式下，英文标点符号会自动匹配中文标点'}
+          {classicSubMode === 'english' && '💡 Tip: Focus on accuracy first, then speed will follow'}
+          {classicSubMode === 'code' && '💡 提示：注意代码的语法符号和缩进'}
         </p>
       </div>
     </div>

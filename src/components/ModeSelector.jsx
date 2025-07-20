@@ -5,9 +5,7 @@ const ModeSelector = () => {
   const { mode, setMode } = useTypingStore()
   
   const modes = [
-    { id: 'chinese', label: '中文', icon: '中', description: '中文打字练习' },
-    { id: 'english', label: 'English', icon: 'En', description: '英文打字练习' },
-    { id: 'code', label: '代码', icon: '</>', description: '代码打字练习' },
+    { id: 'classic', label: '经典', icon: '✨', description: '经典打字练习' },
     { id: 'rhythm', label: '音游', icon: '♪', description: '音游模式打字练习' }
   ]
   

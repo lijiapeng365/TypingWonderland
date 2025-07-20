@@ -10,6 +10,7 @@ import ResultModal from './components/ResultModal'
 function App() {
   const { 
     mode, 
+    classicSubMode,
     isFinished, 
     characterMood, 
     setCurrentText, 
@@ -20,8 +21,9 @@ function App() {
   
   // 初始化文本
   React.useEffect(() => {
-    setCurrentText(getRandomText(mode))
-  }, [mode, setCurrentText])
+    const textMode = mode === 'classic' ? classicSubMode : mode
+    setCurrentText(getRandomText(textMode))
+  }, [mode, classicSubMode, setCurrentText])
   
   // 监听完成状态
   React.useEffect(() => {
@@ -38,7 +40,8 @@ function App() {
   
   // 下一篇
   const handleNext = () => {
-    setCurrentText(getRandomText(mode))
+    const textMode = mode === 'classic' ? classicSubMode : mode
+    setCurrentText(getRandomText(textMode))
     resetTyping()
     setShowResult(false)
   }
