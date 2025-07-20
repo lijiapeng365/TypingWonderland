@@ -1,0 +1,77 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: linear-gradient(135deg, #FFF0F5 0%, #F0FFFF 100%);
+  min-height: 100vh;
+}
+
+.kawaii-button {
+  @apply bg-white hover:bg-kawaii-yellow transition-all duration-300 transform hover:scale-105 active:scale-95 rounded-full px-6 py-3 shadow-lg border-2 border-kawaii-orange font-medium text-gray-700;
+}
+
+.kawaii-card {
+  @apply bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 p-6;
+}
+
+.typing-text {
+  @apply text-2xl leading-relaxed font-medium tracking-wide;
+}
+
+.character-correct {
+  @apply text-kawaii-orange bg-kawaii-orange/20 rounded px-1;
+}
+
+.character-incorrect {
+  @apply text-red-500 bg-kawaii-red rounded px-1 underline decoration-wavy;
+}
+
+.character-pending {
+  @apply text-gray-400 px-1;
+}
+
+.character-current {
+  @apply bg-kawaii-yellow/50 animate-pulse px-1;
+}
+
+.stats-card {
+  @apply kawaii-card text-center min-w-[120px];
+}
+
+.modal-overlay {
+  @apply fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50;
+}
+
+.modal-content {
+  @apply kawaii-card max-w-md w-full mx-4 text-center;
+}
+
+/* 音游模式样式 */
+.rhythm-note {
+  @apply absolute w-14 h-14 bg-kawaii-yellow rounded-full flex items-center justify-center font-bold text-gray-700 shadow-xl border-2 border-kawaii-orange transform -translate-x-1/2 transition-all duration-75 z-30;
+  font-size: 16px;
+}
+
+.rhythm-hit-effect {
+  @apply absolute transform -translate-x-1/2 font-bold text-lg z-20 animate-bounce;
+}
+
+.rhythm-perfect {
+  @apply text-green-500;
+}
+
+.rhythm-good {
+  @apply text-blue-500;
+}
+
+.rhythm-bad {
+  @apply text-yellow-500;
+}
+
+.rhythm-miss {
+  @apply text-red-500;
+}
