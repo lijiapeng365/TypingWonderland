@@ -20,25 +20,29 @@ const RhythmGame = () => {
     gameTime: 0
   })
 
-  // 新的状态驱动动画系统
-  const [fallingNotes, setFallingNotes] = useState([])
-  const [recentHits, setRecentHits] = useState([])
+  // 使用ref存储音符数据，避免频繁状态更新
+  const fallingNotesRef = useRef([])
+  const recentHitsRef = useRef([])
+  const [, forceUpdate] = useState({}) // 用于强制更新UI
+  
   const gameAreaRef = useRef(null)
   const animationRef = useRef(null)
   const lastNoteTime = useRef(0)
   const gameStartTime = useRef(null)
   const noteIdCounter = useRef(0)
-  const isPlayingRef = useRef(false) // 添加这个ref来避免依赖问题
+  const isPlayingRef = useRef(false)
+  const lastFrameTime = useRef(0)
 
-  // 游戏配置
+  // 游戏配置 - 优化后的参数
   const GAME_CONFIG = {
-    noteSpeed: 180, // 像素/秒 - 稍微减慢，给更多时间避免重叠
+    noteSpeed: 200, // 像素/秒 - 提高速度确保流畅
     judgeLinePosition: 0.8, // 判定线位置（相对于游戏区域高度）
-    spawnInterval: 1000, // 音符生成间隔（毫秒）- 增加间隔避免过度拥挤
-    perfectRange: 30, // Perfect判定范围（像素）
-    goodRange: 60, // Good判定范围（像素）
-    badRange: 100, // Bad判定范围（像素）
-    gameDuration: 60000 // 游戏时长（毫秒）
+    spawnInterval: 800, // 音符生成间隔（毫秒）
+    perfectRange: 40, // Perfect判定范围（像素）
+    goodRange: 80, // Good判定范围（像素）
+    badRange: 120, // Bad判定范围（像素）
+    gameDuration: 60000, // 游戏时长（毫秒）
+    noteLifetime: 3000 // 音符生存时间（毫秒）
   }
 
   // 可能的按键 - 包含所有键盘可打字字符
@@ -54,72 +58,42 @@ const RhythmGame = () => {
     '`', '~', '<', '>', ' '
   ]
 
-  // 生成随机音符 - 防重叠版本
+  // 强制更新UI的函数
+  const triggerUpdate = useCallback(() => {
+    forceUpdate({})
+  }, [])
+
+  // 生成随机音符 - 优化版本
   const generateNote = useCallback(() => {
     const key = KEYS[Math.floor(Math.random() * KEYS.length)]
     noteIdCounter.current += 1
 
-    // 防重叠位置分配
-    const findSafePosition = () => {
-      const minDistance = 15 // 最小间距（百分比），增加到15%确保64px音符不重叠
-      const maxAttempts = 30 // 增加尝试次数
-      const safeVerticalDistance = 100 // 垂直安全距离（像素）
-
-      for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        const x = Math.random() * 70 + 15 // 随机位置，留出边距
-
-        // 检查与现有音符的距离
-        const tooClose = fallingNotes.some(note => {
-          const horizontalDistance = Math.abs(note.x - x)
-          const verticalDistance = Math.abs(note.y - 0) // 新音符从顶部开始
-
-          // 如果水平距离太近且垂直距离也不够远，则认为太近
-          return horizontalDistance < minDistance && verticalDistance < safeVerticalDistance
-        })
-
-        if (!tooClose) {
-          return x
-        }
-      }
-
-      // 如果找不到安全位置，使用智能网格系统
-      const gridPositions = [18, 30, 42, 54, 66, 78] // 6个固定位置，间距更均匀
-      const availablePositions = gridPositions.filter(gridX => {
-        return !fallingNotes.some(note => {
-          const horizontalDistance = Math.abs(note.x - gridX)
-          const verticalDistance = Math.abs(note.y - 0)
-          return horizontalDistance < minDistance && verticalDistance < safeVerticalDistance
-        })
+    // 简化的位置分配 - 使用固定网格避免重叠
+    const gridPositions = [15, 25, 35, 45, 55, 65, 75, 85] // 8个固定位置
+    const availablePositions = gridPositions.filter(gridX => {
+      // 检查该位置是否有音符在安全距离内
+      return !fallingNotesRef.current.some(note => {
+        const horizontalDistance = Math.abs(note.x - gridX)
+        const verticalDistance = note.y
+        return horizontalDistance < 8 && verticalDistance < 80 // 减小检查范围提高性能
       })
+    })
 
-      if (availablePositions.length > 0) {
-        return availablePositions[Math.floor(Math.random() * availablePositions.length)]
-      }
-
-      // 最后的备选方案：强制使用网格位置，选择最不拥挤的
-      const positionScores = gridPositions.map(gridX => {
-        const nearbyNotes = fallingNotes.filter(note => {
-          const horizontalDistance = Math.abs(note.x - gridX)
-          return horizontalDistance < minDistance * 2 // 扩大检查范围
-        }).length
-        return { x: gridX, score: nearbyNotes }
-      })
-
-      // 选择附近音符最少的位置
-      positionScores.sort((a, b) => a.score - b.score)
-      return positionScores[0].x
-    }
+    const x = availablePositions.length > 0 
+      ? availablePositions[Math.floor(Math.random() * availablePositions.length)]
+      : gridPositions[Math.floor(Math.random() * gridPositions.length)]
 
     return {
       id: `note_${noteIdCounter.current}`,
       key,
-      x: findSafePosition(),
-      y: 0, // 从游戏区域顶部开始
-      timestamp: performance.now()
+      x,
+      y: -50, // 从游戏区域上方开始，确保有足够时间到达判定线
+      timestamp: performance.now(),
+      speed: GAME_CONFIG.noteSpeed
     }
-  }, [fallingNotes])
+  }, [])
 
-  // 开始游戏 - 新的状态驱动版本
+  // 开始游戏 - 优化版本
   const startGame = () => {
     setGameState(prev => ({
       ...prev,
@@ -132,19 +106,23 @@ const RhythmGame = () => {
       missedNotes: 0,
       gameTime: 0
     }))
-    setFallingNotes([])
-    setRecentHits([])
+    
+    // 清空ref数据
+    fallingNotesRef.current = []
+    recentHitsRef.current = []
+    
     const now = performance.now()
     gameStartTime.current = now
     lastNoteTime.current = now
+    lastFrameTime.current = now
     noteIdCounter.current = 0
-    isPlayingRef.current = true // 同步更新ref
+    isPlayingRef.current = true
   }
 
-  // 结束游戏 - 新的状态驱动版本
+  // 结束游戏 - 优化版本
   const endGame = useCallback(() => {
     setGameState(prev => ({ ...prev, isPlaying: false }))
-    isPlayingRef.current = false // 同步更新ref
+    isPlayingRef.current = false
     if (animationRef.current) {
       cancelAnimationFrame(animationRef.current)
     }
@@ -175,7 +153,7 @@ const RhythmGame = () => {
     return { judgment, score, distance }
   }
 
-  // 处理按键 - 使用ref避免依赖问题
+  // 处理按键 - 完全基于ref的版本
   const handleKeyPress = useCallback((event) => {
     if (!isPlayingRef.current) return
 
@@ -197,71 +175,67 @@ const RhythmGame = () => {
 
     // 查找最接近判定线的对应按键音符
     const currentTime = performance.now()
+    const targetNotes = fallingNotesRef.current.filter(note => note.key === pressedKey)
 
-    setFallingNotes(prevNotes => {
-      const targetNotes = prevNotes.filter(note => note.key === pressedKey)
+    if (targetNotes.length === 0) {
+      // 没有对应音符，扣分
+      setGameState(prev => ({
+        ...prev,
+        score: Math.max(0, prev.score - 50),
+        combo: 0
+      }))
 
-      if (targetNotes.length === 0) {
-        // 没有对应音符，扣分
-        setGameState(prev => ({
+      recentHitsRef.current.push({
+        id: `miss_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+        judgment: 'MISS',
+        x: 50, // 居中显示
+        timestamp: currentTime
+      })
+      triggerUpdate()
+      return
+    }
+
+    // 找到最接近判定线的音符
+    const gameHeight = gameAreaRef.current?.clientHeight || 450
+    const judgeLineY = gameHeight * GAME_CONFIG.judgeLinePosition
+
+    const closestNote = targetNotes.reduce((closest, note) => {
+      const currentDistance = Math.abs(note.y - judgeLineY)
+      const closestDistance = Math.abs(closest.y - judgeLineY)
+      return currentDistance < closestDistance ? note : closest
+    })
+
+    const hitResult = judgeHit(closestNote, currentTime)
+
+    if (hitResult && hitResult.judgment) {
+      // 命中音符，从ref中移除
+      fallingNotesRef.current = fallingNotesRef.current.filter(note => note.id !== closestNote.id)
+
+      setGameState(prev => {
+        const newCombo = prev.combo + 1
+        const comboBonus = Math.floor(newCombo / 10) * 50
+        const totalScore = hitResult.score + comboBonus
+
+        return {
           ...prev,
-          score: Math.max(0, prev.score - 50),
-          combo: 0
-        }))
-
-        setRecentHits(prev => [...prev, {
-          id: `miss_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          judgment: 'MISS',
-          x: 50, // 居中显示
-          timestamp: currentTime
-        }])
-        return prevNotes
-      }
-
-      // 找到最接近判定线的音符
-      const gameHeight = gameAreaRef.current?.clientHeight || 450
-      const judgeLineY = gameHeight * GAME_CONFIG.judgeLinePosition
-
-      const closestNote = targetNotes.reduce((closest, note) => {
-        const currentDistance = Math.abs(note.y - judgeLineY)
-        const closestDistance = Math.abs(closest.y - judgeLineY)
-        return currentDistance < closestDistance ? note : closest
+          score: prev.score + totalScore,
+          combo: newCombo,
+          maxCombo: Math.max(prev.maxCombo, newCombo),
+          hitNotes: prev.hitNotes + 1
+        }
       })
 
-      const hitResult = judgeHit(closestNote, currentTime)
+      recentHitsRef.current.push({
+        id: `hit_${closestNote.id}`,
+        judgment: hitResult.judgment,
+        x: closestNote.x,
+        timestamp: currentTime,
+        score: hitResult.score
+      })
 
-      if (hitResult && hitResult.judgment) {
-        // 命中音符，从状态中移除
-        const newNotes = prevNotes.filter(note => note.id !== closestNote.id)
-
-        setGameState(prev => {
-          const newCombo = prev.combo + 1
-          const comboBonus = Math.floor(newCombo / 10) * 50
-          const totalScore = hitResult.score + comboBonus
-
-          return {
-            ...prev,
-            score: prev.score + totalScore,
-            combo: newCombo,
-            maxCombo: Math.max(prev.maxCombo, newCombo),
-            hitNotes: prev.hitNotes + 1
-          }
-        })
-
-        setRecentHits(prev => [...prev, {
-          id: `hit_${closestNote.id}`,
-          judgment: hitResult.judgment,
-          x: closestNote.x,
-          timestamp: currentTime,
-          score: hitResult.score
-        }])
-
-        return newNotes
-      }
-
-      return prevNotes
-    })
-  }, [])
+      triggerUpdate()
+    }
+  }, [triggerUpdate])
 
   // 设置键盘监听
   useEffect(() => {
@@ -269,18 +243,19 @@ const RhythmGame = () => {
     return () => window.removeEventListener('keydown', handleKeyPress)
   }, [handleKeyPress])
 
-  // 游戏循环 - 完全独立的版本
+  // 游戏循环 - 完全基于ref的高性能版本
   useEffect(() => {
     if (!gameState.isPlaying) return
 
     let animationId = null
 
-    const gameLoop = () => {
+    const gameLoop = (currentTime) => {
       // 使用ref检查状态，避免依赖问题
       if (!isPlayingRef.current || !gameStartTime.current) return
 
-      const currentTime = performance.now()
       const gameTime = currentTime - gameStartTime.current
+      const deltaTime = currentTime - lastFrameTime.current
+      lastFrameTime.current = currentTime
 
       // 检查游戏是否结束
       if (gameTime >= GAME_CONFIG.gameDuration) {
@@ -291,42 +266,47 @@ const RhythmGame = () => {
       // 生成新音符
       if (currentTime - lastNoteTime.current >= GAME_CONFIG.spawnInterval) {
         const newNote = generateNote()
-        setFallingNotes(prev => [...prev, newNote])
+        fallingNotesRef.current.push(newNote)
         setGameState(prev => ({ ...prev, totalNotes: prev.totalNotes + 1 }))
         lastNoteTime.current = currentTime
       }
 
       // 更新音符位置和移除超出屏幕的音符
-      setFallingNotes(prev => {
-        const gameHeight = gameAreaRef.current?.clientHeight || 450
-        const moveDistance = GAME_CONFIG.noteSpeed / 60 // 60fps
+      const gameHeight = gameAreaRef.current?.clientHeight || 450
+      const moveDistance = (GAME_CONFIG.noteSpeed * deltaTime) / 1000 // 基于实际时间差
 
-        const updatedNotes = prev.map(note => ({
-          ...note,
-          y: note.y + moveDistance
-        }))
+      let missedCount = 0
+      fallingNotesRef.current = fallingNotesRef.current.filter(note => {
+        // 更新音符位置
+        note.y += moveDistance
 
-        // 过滤掉超出屏幕的音符
-        const visibleNotes = updatedNotes.filter(note => note.y <= gameHeight + 20)
-        const missedNotes = updatedNotes.length - visibleNotes.length
-
-        // 如果有音符被错过，重置连击
-        if (missedNotes > 0) {
-          setGameState(prevState => ({
-            ...prevState,
-            combo: 0,
-            missedNotes: prevState.missedNotes + missedNotes
-          }))
+        // 检查是否超出屏幕
+        if (note.y > gameHeight + 50) {
+          missedCount++
+          return false // 移除超出屏幕的音符
         }
-
-        return visibleNotes
+        return true
       })
 
+      // 如果有音符被错过，重置连击
+      if (missedCount > 0) {
+        setGameState(prevState => ({
+          ...prevState,
+          combo: 0,
+          missedNotes: prevState.missedNotes + missedCount
+        }))
+      }
+
       // 清理旧的命中效果
-      setRecentHits(prev => prev.filter(hit => currentTime - hit.timestamp < 1000))
+      recentHitsRef.current = recentHitsRef.current.filter(hit => 
+        currentTime - hit.timestamp < 1000
+      )
 
       // 更新游戏时间
       setGameState(prev => ({ ...prev, gameTime }))
+
+      // 强制更新UI以显示新的音符位置
+      triggerUpdate()
 
       // 继续循环
       if (isPlayingRef.current) {
@@ -342,7 +322,7 @@ const RhythmGame = () => {
         cancelAnimationFrame(animationId)
       }
     }
-  }, [gameState.isPlaying, endGame, generateNote]) // 明确依赖
+  }, [gameState.isPlaying, endGame, generateNote, triggerUpdate])
 
   // 条件渲染检查必须在所有hooks之后
   if (mode !== 'rhythm') return null
@@ -418,7 +398,7 @@ const RhythmGame = () => {
             </span>
             <span className="flex items-center">
               <span className="text-senren-purple mr-1">🎵</span>
-              音符: <strong className="text-senren-sakura ml-1">{fallingNotes.length}</strong>
+              音符: <strong className="text-senren-sakura ml-1">{fallingNotesRef.current.length}</strong>
             </span>
           </div>
           <div className="text-xs text-senren-purple bg-senren-lavender/30 px-3 py-1 rounded-full">
@@ -450,7 +430,7 @@ const RhythmGame = () => {
           )}
 
           {/* 下落的音符 */}
-          {fallingNotes.map(note => (
+          {fallingNotesRef.current.map(note => (
             <div
               key={note.id}
               className="rhythm-note"
@@ -464,7 +444,7 @@ const RhythmGame = () => {
           ))}
 
           {/* 命中效果 */}
-          {recentHits.map(hit => (
+          {recentHitsRef.current.map(hit => (
             <div
               key={hit.id}
               className={`rhythm-hit-effect ${hit.judgment === 'PERFECT' ? 'rhythm-perfect' :
