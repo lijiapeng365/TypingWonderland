@@ -14,14 +14,15 @@ const RhythmGame = () => {
     gameTime: 0
   })
   
+  // 新的状态驱动动画系统
   const [fallingNotes, setFallingNotes] = useState([])
   const [recentHits, setRecentHits] = useState([])
   const gameAreaRef = useRef(null)
   const animationRef = useRef(null)
   const lastNoteTime = useRef(0)
-  const lastFrameTime = useRef(0)
   const gameStartTime = useRef(null)
-  const isPlayingRef = useRef(false)
+  const noteIdCounter = useRef(0)
+  const isPlayingRef = useRef(false) // 添加这个ref来避免依赖问题
   
   // 游戏配置
   const GAME_CONFIG = {
@@ -47,12 +48,12 @@ const RhythmGame = () => {
     '`', '~', '<', '>', ' '
   ]
   
-  // 生成随机音符
+  // 生成随机音符 - 新的状态驱动版本
   const generateNote = useCallback(() => {
     const key = KEYS[Math.floor(Math.random() * KEYS.length)]
-    const id = `note_${performance.now()}_${Math.random().toString(36).substr(2, 9)}`
+    noteIdCounter.current += 1
     return {
-      id,
+      id: `note_${noteIdCounter.current}`,
       key,
       x: Math.random() * 70 + 15, // 随机位置，留出边距
       y: 0, // 从游戏区域顶部开始
@@ -60,7 +61,7 @@ const RhythmGame = () => {
     }
   }, [])
   
-  // 开始游戏
+  // 开始游戏 - 新的状态驱动版本
   const startGame = () => {
     setGameState(prev => ({
       ...prev,
@@ -78,18 +79,18 @@ const RhythmGame = () => {
     const now = performance.now()
     gameStartTime.current = now
     lastNoteTime.current = now
-    lastFrameTime.current = now // 重置上一帧时间
-    isPlayingRef.current = true
+    noteIdCounter.current = 0
+    isPlayingRef.current = true // 同步更新ref
   }
   
-  // 结束游戏
-  const endGame = () => {
+  // 结束游戏 - 新的状态驱动版本
+  const endGame = useCallback(() => {
     setGameState(prev => ({ ...prev, isPlaying: false }))
-    isPlayingRef.current = false
+    isPlayingRef.current = false // 同步更新ref
     if (animationRef.current) {
       cancelAnimationFrame(animationRef.current)
     }
-  }
+  }, [])
   
   // 判定音符命中
   const judgeHit = (note, currentTime) => {
@@ -116,7 +117,7 @@ const RhythmGame = () => {
     return { judgment, score, distance }
   }
   
-  // 处理按键
+  // 处理按键 - 新的状态驱动版本
   const handleKeyPress = useCallback((event) => {
     if (!gameState.isPlaying) return
     
@@ -201,73 +202,77 @@ const RhythmGame = () => {
     return () => window.removeEventListener('keydown', handleKeyPress)
   }, [handleKeyPress])
   
-  // 启动游戏循环
+  // 全新的状态驱动游戏循环 - 修复版本
   useEffect(() => {
-    if (gameState.isPlaying) {
-      const loop = (currentTime) => {
-        if (!isPlayingRef.current || !gameStartTime.current) return
-        
-        const gameTime = currentTime - gameStartTime.current
-        const deltaTime = currentTime - lastFrameTime.current
-        lastFrameTime.current = currentTime
-        
-        // 检查游戏是否结束
-        if (gameTime >= GAME_CONFIG.gameDuration) {
-          endGame()
-          return
-        }
-        
-        setGameState(prev => ({ ...prev, gameTime }))
-        
-        // 生成新音符
-        if (currentTime - lastNoteTime.current >= GAME_CONFIG.spawnInterval) {
-          const newNote = generateNote()
-          setFallingNotes(prev => [...prev, newNote])
-          setGameState(prev => ({ ...prev, totalNotes: prev.totalNotes + 1 }))
-          lastNoteTime.current = currentTime
-        }
-        
-        // 更新音符位置
-        setFallingNotes(prev => {
-          const gameHeight = gameAreaRef.current?.clientHeight || 450
-          const moveDistance = (GAME_CONFIG.noteSpeed * deltaTime) / 1000
-          
-          const updatedNotes = prev.map(note => ({
-            ...note,
-            y: note.y + moveDistance
-          }))
-          
-          const notesToRemove = updatedNotes.filter(note => note.y > gameHeight + 20)
-          const remainingNotes = updatedNotes.filter(note => note.y <= gameHeight + 20)
-          
-          if (notesToRemove.length > 0) {
-            setGameState(prevState => ({
-              ...prevState,
-              combo: 0,
-              missedNotes: prevState.missedNotes + notesToRemove.length
-            }))
-          }
-          
-          return remainingNotes
-        })
-        
-        // 清理旧的命中效果
-        setRecentHits(prev => prev.filter(hit => currentTime - hit.timestamp < 1000))
-        
-        if (isPlayingRef.current) {
-          animationRef.current = requestAnimationFrame(loop)
-        }
+    if (!gameState.isPlaying) return
+
+    const gameLoop = () => {
+      // 使用ref检查状态，避免依赖问题
+      if (!isPlayingRef.current || !gameStartTime.current) return
+
+      const currentTime = performance.now()
+      const gameTime = currentTime - gameStartTime.current
+
+      // 检查游戏是否结束
+      if (gameTime >= GAME_CONFIG.gameDuration) {
+        endGame()
+        return
       }
-      
-      animationRef.current = requestAnimationFrame(loop)
+
+      // 生成新音符
+      if (currentTime - lastNoteTime.current >= GAME_CONFIG.spawnInterval) {
+        const newNote = generateNote()
+        setFallingNotes(prev => [...prev, newNote])
+        setGameState(prev => ({ ...prev, totalNotes: prev.totalNotes + 1 }))
+        lastNoteTime.current = currentTime
+      }
+
+      // 更新音符位置和移除超出屏幕的音符
+      setFallingNotes(prev => {
+        const gameHeight = gameAreaRef.current?.clientHeight || 450
+        const moveDistance = GAME_CONFIG.noteSpeed / 60 // 60fps
+
+        const updatedNotes = prev.map(note => ({
+          ...note,
+          y: note.y + moveDistance
+        }))
+
+        // 过滤掉超出屏幕的音符
+        const visibleNotes = updatedNotes.filter(note => note.y <= gameHeight + 20)
+        const missedNotes = updatedNotes.length - visibleNotes.length
+
+        // 如果有音符被错过，重置连击
+        if (missedNotes > 0) {
+          setGameState(prevState => ({
+            ...prevState,
+            combo: 0,
+            missedNotes: prevState.missedNotes + missedNotes
+          }))
+        }
+
+        return visibleNotes
+      })
+
+      // 清理旧的命中效果
+      setRecentHits(prev => prev.filter(hit => currentTime - hit.timestamp < 1000))
+
+      // 更新游戏时间
+      setGameState(prev => ({ ...prev, gameTime }))
+
+      // 继续循环 - 使用ref检查状态
+      if (isPlayingRef.current) {
+        animationRef.current = requestAnimationFrame(gameLoop)
+      }
     }
-    
+
+    animationRef.current = requestAnimationFrame(gameLoop)
+
     return () => {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current)
       }
     }
-  }, [gameState.isPlaying, generateNote])
+  }, [gameState.isPlaying]) // 保持最小依赖
   
   // 条件渲染检查必须在所有hooks之后
   if (mode !== 'rhythm') return null
