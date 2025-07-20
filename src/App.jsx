@@ -52,26 +52,29 @@ function App() {
   }
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-kawaii-pink via-kawaii-blue to-kawaii-mint">
-      {/* 背景装饰 */}
+    <div className="min-h-screen">
+      {/* 千恋万花风格背景装饰 */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-10 left-10 text-4xl text-kawaii-orange/30 animate-bounce-slow">🌸</div>
-        <div className="absolute top-20 right-20 text-3xl text-kawaii-purple/30 animate-pulse">⭐</div>
-        <div className="absolute bottom-20 left-20 text-5xl text-kawaii-mint/30 animate-wiggle">🌙</div>
-        <div className="absolute bottom-10 right-10 text-4xl text-kawaii-yellow/30 animate-bounce">☀️</div>
-        <div className="absolute top-1/2 left-10 text-2xl text-kawaii-pink/30 animate-pulse">💫</div>
-        <div className="absolute top-1/3 right-10 text-3xl text-kawaii-blue/30 animate-bounce-slow">🦋</div>
+        <div className="absolute top-10 left-10 text-4xl text-senren-sakura/40 animate-bounce-slow">🌸</div>
+        <div className="absolute top-20 right-20 text-3xl text-senren-purple/40 animate-pulse">🌺</div>
+        <div className="absolute bottom-20 left-20 text-5xl text-senren-gold/30 animate-wiggle">🌙</div>
+        <div className="absolute bottom-10 right-10 text-4xl text-senren-amber/40 animate-bounce">✨</div>
+        <div className="absolute top-1/2 left-10 text-2xl text-senren-rose/40 animate-pulse">🌸</div>
+        <div className="absolute top-1/3 right-10 text-3xl text-senren-lavender/40 animate-bounce-slow">🦋</div>
+        <div className="absolute top-1/4 left-1/4 text-2xl text-senren-sakura/30 animate-pulse">🌸</div>
+        <div className="absolute bottom-1/4 right-1/4 text-2xl text-senren-purple/30 animate-bounce-slow">🌸</div>
+        <div className="absolute top-3/4 left-3/4 text-3xl text-senren-gold/20 animate-wiggle">🌟</div>
       </div>
       
       <div className="container mx-auto px-4 py-8 relative z-10">
         {/* 标题 */}
-        <header className="text-center mb-8">
-          <h1 className="text-5xl font-bold text-gray-800 mb-4">
-            <span className="text-kawaii-orange">Typing</span>{' '}
-            <span className="text-kawaii-purple">Wonderland</span>
+        <header className="text-center mb-12">
+          <h1 className="text-5xl font-bold mb-4" style={{textShadow: '0 4px 8px rgba(200, 162, 200, 0.3)'}}>
+            <span className="text-senren-sakura">Typing</span>
+            <span className="text-senren-purple mx-2">Practice</span>
           </h1>
-          <p className="text-lg text-gray-600">
-            🌟 可爱二次元风格打字练习 🌟
+          <p className="text-lg text-senren-purple font-medium">
+            在线打字练习平台
           </p>
         </header>
         
@@ -97,21 +100,21 @@ function App() {
             {/* 打字区域 */}
             <TypingArea />
             
-            {/* 控制按钮 */}
-            <div className="flex justify-center gap-4">
+            {/* 控制按钮 - 千恋万花风格 */}
+            <div className="flex justify-center gap-6">
               <button
                 onClick={handleRetry}
-                className="kawaii-button"
+                className="kawaii-button text-senren-purple hover:text-white"
               >
-                <span className="mr-2">🔄</span>
+                <span className="mr-2">🌸</span>
                 重新开始
               </button>
               
               <button
                 onClick={handleNext}
-                className="kawaii-button"
+                className="kawaii-button text-senren-purple hover:text-white"
               >
-                <span className="mr-2">📝</span>
+                <span className="mr-2">🌺</span>
                 换一篇
               </button>
             </div>
@@ -119,13 +122,15 @@ function App() {
         </div>
         
         {/* 页脚 */}
-        <footer className="text-center mt-12 text-gray-500">
-          <p className="text-sm">
-            Made with 💖 by Typing Wonderland Team
-          </p>
-          <p className="text-xs mt-2">
-            © 2024 Typing Wonderland. All rights reserved.
-          </p>
+        <footer className="text-center mt-16 text-senren-purple/70">
+          <div className="bg-gradient-to-r from-senren-cream/30 via-senren-rose/20 to-senren-lavender/30 rounded-3xl p-6 border border-senren-purple/20 backdrop-blur-sm">
+            <p className="text-sm mb-2">
+              Made with 💖 by Typing Practice Team
+            </p>
+            <p className="text-xs text-senren-purple/60">
+              © 2024 Typing Practice. All rights reserved.
+            </p>
+          </div>
         </footer>
       </div>
       

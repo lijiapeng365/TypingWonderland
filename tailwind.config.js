@@ -13,7 +13,16 @@ export default {
         'kawaii-orange': '#FFB74D',
         'kawaii-red': '#FFCDD2',
         'kawaii-purple': '#E1BEE7',
-        'kawaii-yellow': '#FFF9C4'
+        'kawaii-yellow': '#FFF9C4',
+        // 千恋万花风格颜色
+        'senren-sakura': '#FFB7C5',      // 樱花粉
+        'senren-purple': '#C8A2C8',      // 优雅紫
+        'senren-gold': '#F4D03F',        // 温暖金
+        'senren-cream': '#FFF8DC',       // 奶油色
+        'senren-lavender': '#E6E6FA',    // 薰衣草紫
+        'senren-rose': '#FFE4E1',        // 玫瑰色
+        'senren-amber': '#FFBF00',       // 琥珀色
+        'senren-mist': '#F5F5F5'         // 雾色
       },
       fontFamily: {
         'kawaii': ['Comic Sans MS', 'cursive'],

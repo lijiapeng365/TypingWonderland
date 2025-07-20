@@ -32,9 +32,9 @@ const RhythmGame = () => {
 
   // 游戏配置
   const GAME_CONFIG = {
-    noteSpeed: 200, // 像素/秒
+    noteSpeed: 180, // 像素/秒 - 稍微减慢，给更多时间避免重叠
     judgeLinePosition: 0.8, // 判定线位置（相对于游戏区域高度）
-    spawnInterval: 800, // 音符生成间隔（毫秒）- 稍微加快
+    spawnInterval: 1000, // 音符生成间隔（毫秒）- 增加间隔避免过度拥挤
     perfectRange: 30, // Perfect判定范围（像素）
     goodRange: 60, // Good判定范围（像素）
     badRange: 100, // Bad判定范围（像素）
@@ -54,18 +54,70 @@ const RhythmGame = () => {
     '`', '~', '<', '>', ' '
   ]
 
-  // 生成随机音符 - 新的状态驱动版本
+  // 生成随机音符 - 防重叠版本
   const generateNote = useCallback(() => {
     const key = KEYS[Math.floor(Math.random() * KEYS.length)]
     noteIdCounter.current += 1
+
+    // 防重叠位置分配
+    const findSafePosition = () => {
+      const minDistance = 15 // 最小间距（百分比），增加到15%确保64px音符不重叠
+      const maxAttempts = 30 // 增加尝试次数
+      const safeVerticalDistance = 100 // 垂直安全距离（像素）
+
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const x = Math.random() * 70 + 15 // 随机位置，留出边距
+
+        // 检查与现有音符的距离
+        const tooClose = fallingNotes.some(note => {
+          const horizontalDistance = Math.abs(note.x - x)
+          const verticalDistance = Math.abs(note.y - 0) // 新音符从顶部开始
+
+          // 如果水平距离太近且垂直距离也不够远，则认为太近
+          return horizontalDistance < minDistance && verticalDistance < safeVerticalDistance
+        })
+
+        if (!tooClose) {
+          return x
+        }
+      }
+
+      // 如果找不到安全位置，使用智能网格系统
+      const gridPositions = [18, 30, 42, 54, 66, 78] // 6个固定位置，间距更均匀
+      const availablePositions = gridPositions.filter(gridX => {
+        return !fallingNotes.some(note => {
+          const horizontalDistance = Math.abs(note.x - gridX)
+          const verticalDistance = Math.abs(note.y - 0)
+          return horizontalDistance < minDistance && verticalDistance < safeVerticalDistance
+        })
+      })
+
+      if (availablePositions.length > 0) {
+        return availablePositions[Math.floor(Math.random() * availablePositions.length)]
+      }
+
+      // 最后的备选方案：强制使用网格位置，选择最不拥挤的
+      const positionScores = gridPositions.map(gridX => {
+        const nearbyNotes = fallingNotes.filter(note => {
+          const horizontalDistance = Math.abs(note.x - gridX)
+          return horizontalDistance < minDistance * 2 // 扩大检查范围
+        }).length
+        return { x: gridX, score: nearbyNotes }
+      })
+
+      // 选择附近音符最少的位置
+      positionScores.sort((a, b) => a.score - b.score)
+      return positionScores[0].x
+    }
+
     return {
       id: `note_${noteIdCounter.current}`,
       key,
-      x: Math.random() * 70 + 15, // 随机位置，留出边距
+      x: findSafePosition(),
       y: 0, // 从游戏区域顶部开始
       timestamp: performance.now()
     }
-  }, [])
+  }, [fallingNotes])
 
   // 开始游戏 - 新的状态驱动版本
   const startGame = () => {
@@ -345,34 +397,57 @@ const RhythmGame = () => {
   return (
     <div className="kawaii-card">
       <div className="mb-6">
-        <h3 className="text-lg font-semibold text-gray-700 mb-4 text-center">
-          ♪ 音游模式
+        <h3 className="text-xl font-semibold text-senren-purple mb-6 text-center">
+          音游模式
         </h3>
 
-        {/* 游戏统计 */}
-        <div className="flex justify-between items-center mb-4 text-sm">
-          <div className="flex space-x-4">
-            <span>得分: <strong className="text-kawaii-orange">{gameState.score}</strong></span>
-            <span>连击: <strong className="text-kawaii-yellow">{gameState.combo}</strong></span>
-            <span>时间: <strong>{Math.ceil((GAME_CONFIG.gameDuration - gameState.gameTime) / 1000)}s</strong></span>
-            <span>音符: <strong className="text-blue-500">{fallingNotes.length}</strong></span>
+        {/* 游戏统计 - 千恋万花风格 */}
+        <div className="flex justify-between items-center mb-6 text-sm bg-gradient-to-r from-senren-cream/50 to-senren-rose/30 rounded-2xl p-4 border border-senren-purple/20">
+          <div className="flex space-x-6">
+            <span className="flex items-center">
+              <span className="text-senren-purple mr-1">🌸</span>
+              得分: <strong className="text-senren-gold ml-1">{gameState.score}</strong>
+            </span>
+            <span className="flex items-center">
+              <span className="text-senren-purple mr-1">⚡</span>
+              连击: <strong className="text-senren-amber ml-1">{gameState.combo}</strong>
+            </span>
+            <span className="flex items-center">
+              <span className="text-senren-purple mr-1">⏰</span>
+              时间: <strong className="text-senren-purple ml-1">{Math.ceil((GAME_CONFIG.gameDuration - gameState.gameTime) / 1000)}s</strong>
+            </span>
+            <span className="flex items-center">
+              <span className="text-senren-purple mr-1">🎵</span>
+              音符: <strong className="text-senren-sakura ml-1">{fallingNotes.length}</strong>
+            </span>
           </div>
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-senren-purple bg-senren-lavender/30 px-3 py-1 rounded-full">
             命中率: {gameState.totalNotes > 0 ? Math.round((gameState.hitNotes / gameState.totalNotes) * 100) : 100}%
           </div>
         </div>
 
-        {/* 游戏区域 */}
+        {/* 游戏区域 - 千恋万花风格 */}
         <div
           ref={gameAreaRef}
-          className="relative bg-gradient-to-b from-purple-100 to-pink-100 rounded-2xl border-2 border-gray-200 overflow-hidden"
-          style={{ height: '450px' }}
+          className="relative bg-gradient-to-b from-senren-lavender/40 via-senren-rose/30 to-senren-cream/50 rounded-3xl border-2 border-senren-purple/30 overflow-hidden shadow-2xl"
+          style={{
+            height: '450px',
+            backgroundImage: `
+              radial-gradient(circle at 20% 20%, rgba(255, 183, 197, 0.2) 0%, transparent 40%),
+              radial-gradient(circle at 80% 80%, rgba(200, 162, 200, 0.2) 0%, transparent 40%)
+            `
+          }}
         >
-          {/* 判定线 */}
-          <div
-            className="absolute left-0 right-0 h-1 bg-kawaii-orange shadow-lg z-10"
-            style={{ top: `${GAME_CONFIG.judgeLinePosition * 100}%` }}
-          />
+          {/* 判定线 - 千恋万花风格 - 只在游戏进行时显示 */}
+          {gameState.isPlaying && (
+            <div
+              className="absolute left-0 right-0 h-2 bg-gradient-to-r from-senren-gold via-senren-amber to-senren-gold shadow-2xl z-10 rounded-full"
+              style={{
+                top: `${GAME_CONFIG.judgeLinePosition * 100}%`,
+                boxShadow: '0 0 20px rgba(244, 208, 63, 0.6), 0 0 40px rgba(255, 191, 0, 0.3)'
+              }}
+            />
+          )}
 
           {/* 下落的音符 */}
           {fallingNotes.map(note => (
@@ -407,35 +482,52 @@ const RhythmGame = () => {
             </div>
           ))}
 
-          {/* 游戏开始/结束界面 */}
+          {/* 游戏开始/结束界面 - 千恋万花风格 */}
           {!gameState.isPlaying && (
-            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-              <div className="text-center text-white">
+            <div className="absolute inset-0 bg-gradient-to-br from-senren-purple/80 via-senren-sakura/70 to-senren-lavender/80 backdrop-blur-md flex items-center justify-center">
+              <div className="text-center text-white bg-gradient-to-br from-senren-cream/20 to-senren-rose/20 rounded-3xl p-8 border border-white/30 backdrop-blur-sm shadow-2xl">
                 {gameState.totalNotes > 0 ? (
-                  <div className="space-y-4">
-                    <h3 className="text-2xl font-bold">游戏结束！</h3>
-                    <div className="space-y-2">
-                      <p>最终得分: <span className="text-kawaii-yellow">{gameState.score}</span></p>
-                      <p>最高连击: <span className="text-kawaii-orange">{gameState.maxCombo}</span></p>
-                      <p>命中率: <span className="text-green-400">{Math.round((gameState.hitNotes / gameState.totalNotes) * 100)}%</span></p>
+                  <div className="space-y-6">
+                    <div className="text-4xl mb-4">🌸</div>
+                    <h3 className="text-3xl font-bold text-senren-gold" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
+                      游戏结束！
+                    </h3>
+                    <div className="space-y-3 text-lg">
+                      <p className="flex items-center justify-center">
+                        <span className="mr-2">🌟</span>
+                        最终得分: <span className="text-senren-gold font-bold ml-2">{gameState.score}</span>
+                      </p>
+                      <p className="flex items-center justify-center">
+                        <span className="mr-2">⚡</span>
+                        最高连击: <span className="text-senren-amber font-bold ml-2">{gameState.maxCombo}</span>
+                      </p>
+                      <p className="flex items-center justify-center">
+                        <span className="mr-2">🎯</span>
+                        命中率: <span className="text-senren-cream font-bold ml-2">{Math.round((gameState.hitNotes / gameState.totalNotes) * 100)}%</span>
+                      </p>
                     </div>
                     <button
                       onClick={startGame}
-                      className="kawaii-button"
+                      className="kawaii-button text-senren-purple hover:text-white"
                     >
                       再来一局
                     </button>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    <h3 className="text-2xl font-bold">音游模式</h3>
-                    <p>使用键盘上所有可打字的字符</p>
-                    <p>包括字母、数字、标点符号和空格</p>
-                    <p>根据下落音符显示的字符按对应按键</p>
-                    <p>当音符到达判定线时按下对应按键</p>
+                  <div className="space-y-6">
+                    <div className="text-5xl mb-4">🌸🎵🌸</div>
+                    <h3 className="text-3xl font-bold text-senren-gold" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
+                      音游模式
+                    </h3>
+                    <div className="space-y-3 text-base text-senren-cream">
+                      <p>🎹 使用键盘上所有可打字的字符</p>
+                      <p>🎼 包括字母、数字、标点符号和空格</p>
+                      <p>🎵 根据下落音符显示的字符按对应按键</p>
+                      <p>⏰ 当音符到达判定线时按下对应按键</p>
+                    </div>
                     <button
                       onClick={startGame}
-                      className="kawaii-button"
+                      className="kawaii-button text-senren-purple hover:text-white"
                     >
                       开始游戏
                     </button>
@@ -447,30 +539,33 @@ const RhythmGame = () => {
         </div>
 
         {/* 键盘提示 */}
-        <div className="mt-4">
-          <div className="text-center text-sm text-gray-600 mb-2">
-            <strong>支持的字符类型：</strong>
+        <div className="mt-6">
+          <div className="text-center text-base text-senren-purple mb-4 font-medium">
+            支持的字符类型
           </div>
-          <div className="grid grid-cols-3 gap-4 text-xs text-gray-500">
-            <div className="text-center">
-              <div className="font-semibold mb-1">字母</div>
-              <div>A-Z (26个)</div>
+          <div className="grid grid-cols-3 gap-6 text-sm">
+            <div className="text-center bg-gradient-to-br from-senren-cream/40 to-senren-rose/30 rounded-2xl p-4 border border-senren-purple/20">
+              <div className="font-semibold mb-2 text-senren-purple">🔤 字母</div>
+              <div className="text-senren-sakura">A-Z (26个)</div>
             </div>
-            <div className="text-center">
-              <div className="font-semibold mb-1">数字</div>
-              <div>0-9 (10个)</div>
+            <div className="text-center bg-gradient-to-br from-senren-lavender/40 to-senren-cream/30 rounded-2xl p-4 border border-senren-purple/20">
+              <div className="font-semibold mb-2 text-senren-purple">🔢 数字</div>
+              <div className="text-senren-sakura">0-9 (10个)</div>
             </div>
-            <div className="text-center">
-              <div className="font-semibold mb-1">符号</div>
-              <div>标点符号、空格等</div>
+            <div className="text-center bg-gradient-to-br from-senren-rose/40 to-senren-lavender/30 rounded-2xl p-4 border border-senren-purple/20">
+              <div className="font-semibold mb-2 text-senren-purple">🎭 符号</div>
+              <div className="text-senren-sakura">标点符号、空格等</div>
             </div>
           </div>
         </div>
 
         {/* 操作提示 */}
-        <div className="mt-4 text-center">
-          <p className="text-sm text-gray-500">
-            💡 提示：看到下落的字符，在音符接近判定线时按对应的键！连击可以获得额外分数
+        <div className="mt-6 text-center bg-gradient-to-r from-senren-gold/20 via-senren-amber/10 to-senren-gold/20 rounded-2xl p-4 border border-senren-gold/30">
+          <p className="text-sm text-senren-purple leading-relaxed">
+            💡 <strong>操作提示：</strong>观察下落的音符，当它们接近判定线时按下对应按键
+          </p>
+          <p className="text-xs text-senren-sakura mt-2">
+            连续命中可获得连击奖励
           </p>
         </div>
       </div>

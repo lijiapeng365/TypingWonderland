@@ -88,31 +88,43 @@ const TypingArea = () => {
   return (
     <div className="kawaii-card">
       <div className="mb-6">
-        <h3 className="text-lg font-semibold text-gray-700 mb-4 text-center">
-          ✨ 经典
+        <h3 className="text-xl font-semibold text-senren-purple mb-6 text-center">
+          经典模式
         </h3>
         
         {/* 经典模式子选项 */}
         <ClassicSubModeSelector />
         
-        {/* 文本显示区域 */}
-        <div className="typing-text p-6 bg-gray-50 rounded-2xl border-2 border-gray-200 min-h-[200px] leading-loose whitespace-pre-wrap break-words">
+        {/* 文本显示区域 - 千恋万花风格 */}
+        <div className="typing-text p-8 bg-gradient-to-br from-senren-cream/50 via-white/80 to-senren-rose/30 rounded-3xl border-2 border-senren-purple/30 min-h-[240px] leading-loose whitespace-pre-wrap break-words shadow-inner"
+             style={{
+               backgroundImage: `
+                 radial-gradient(circle at 10% 20%, rgba(255, 183, 197, 0.1) 0%, transparent 30%),
+                 radial-gradient(circle at 90% 80%, rgba(200, 162, 200, 0.1) 0%, transparent 30%)
+               `,
+               boxShadow: 'inset 0 4px 8px rgba(200, 162, 200, 0.1), 0 4px 16px rgba(255, 183, 197, 0.2)'
+             }}>
           {renderText()}
           
-          {/* 光标 */}
+          {/* 光标 - 千恋万花风格 */}
           {currentIndex < currentText.length && (
-            <span className="inline-block w-0.5 h-8 bg-kawaii-orange animate-pulse ml-1"></span>
+            <span className="inline-block w-1 h-8 bg-gradient-to-b from-senren-gold to-senren-amber animate-pulse ml-1 rounded-full shadow-lg"
+                  style={{boxShadow: '0 0 8px rgba(244, 208, 63, 0.6)'}}></span>
           )}
         </div>
       </div>
       
-      {/* 隐藏的输入框 */}
+      {/* 输入框 - 千恋万花风格 */}
       <input
         ref={inputRef}
         type="text"
         value={userInput}
         onChange={handleInputChange}
-        className="w-full p-4 border-2 border-kawaii-orange rounded-xl text-lg focus:outline-none focus:ring-4 focus:ring-kawaii-orange/30 transition-all duration-200"
+        className="w-full p-6 border-2 border-senren-purple/40 rounded-2xl text-lg focus:outline-none focus:ring-4 focus:ring-senren-gold/30 transition-all duration-300 bg-gradient-to-r from-senren-cream/80 to-senren-rose/60 text-senren-purple placeholder-senren-purple/60"
+        style={{
+          boxShadow: '0 4px 12px rgba(200, 162, 200, 0.2), inset 0 2px 4px rgba(255, 255, 255, 0.5)',
+          backdropFilter: 'blur(8px)'
+        }}
         placeholder={
           classicSubMode === 'chinese' 
             ? '开始输入中文...' 
@@ -126,8 +138,8 @@ const TypingArea = () => {
       />
       
       {/* 提示信息 */}
-      <div className="mt-4 text-center">
-        <p className="text-sm text-gray-500">
+      <div className="mt-6 text-center bg-gradient-to-r from-senren-lavender/30 via-senren-cream/20 to-senren-rose/30 rounded-2xl p-4 border border-senren-purple/20">
+        <p className="text-sm text-senren-purple leading-relaxed">
           {classicSubMode === 'chinese' && '💡 提示：中文模式下，英文标点符号会自动匹配中文标点'}
           {classicSubMode === 'english' && '💡 Tip: Focus on accuracy first, then speed will follow'}
           {classicSubMode === 'code' && '💡 提示：注意代码的语法符号和缩进'}
