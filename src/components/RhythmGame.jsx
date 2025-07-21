@@ -4,9 +4,28 @@ import useTypingStore from '../store/typingStore'
 const RhythmGame = () => {
   const { mode } = useTypingStore()
   const [fallingChars, setFallingChars] = useState([])
+  const [score, setScore] = useState(0)
+  const [combo, setCombo] = useState(0)
+  const [judgmentHistory, setJudgmentHistory] = useState([])
+  const [currentJudgment, setCurrentJudgment] = useState(null)
   const gameAreaRef = useRef(null)
   const animationRef = useRef(null)
   const isAnimatingRef = useRef(false)
+
+  // 评分配置
+  const SCORE_CONFIG = {
+    perfect: 100,
+    good: 70,
+    bad: 30,
+    miss: 0
+  }
+
+  // 判定区域配置（相对于判定线的像素距离）
+  const JUDGMENT_ZONES = {
+    perfect: 15,  // ±15px
+    good: 30,     // ±30px
+    bad: 50       // ±50px
+  }
 
   // 条件渲染检查
   if (mode !== 'rhythm') return null
@@ -26,6 +45,104 @@ const RhythmGame = () => {
     ]
     return colors[Math.floor(Math.random() * colors.length)]
   }
+
+  // 判定函数
+  const judgeHit = (block, gameArea) => {
+    const judgmentLineY = gameArea.offsetHeight - 56 // 判定线位置（bottom-14 = 56px）
+    const blockCenterY = block.y + block.height / 2
+    const distance = Math.abs(blockCenterY - judgmentLineY)
+
+    if (distance <= JUDGMENT_ZONES.perfect) {
+      return 'perfect'
+    } else if (distance <= JUDGMENT_ZONES.good) {
+      return 'good'
+    } else if (distance <= JUDGMENT_ZONES.bad) {
+      return 'bad'
+    } else {
+      return 'miss'
+    }
+  }
+
+  // 处理键盘输入
+  const handleKeyPress = (key) => {
+    const gameArea = gameAreaRef.current
+    if (!gameArea) return
+
+    // 查找匹配的下落块（最接近判定线的）
+    const matchingBlocks = fallingChars.filter(block =>
+      block.char.toLowerCase() === key.toLowerCase()
+    )
+
+    if (matchingBlocks.length === 0) return
+
+    // 找到最接近判定线的块
+    const judgmentLineY = gameArea.offsetHeight - 56
+    const closestBlock = matchingBlocks.reduce((closest, current) => {
+      const closestDistance = Math.abs((closest.y + closest.height / 2) - judgmentLineY)
+      const currentDistance = Math.abs((current.y + current.height / 2) - judgmentLineY)
+      return currentDistance < closestDistance ? current : closest
+    })
+
+    // 判定
+    const judgment = judgeHit(closestBlock, gameArea)
+
+    // 更新分数和连击
+    const points = SCORE_CONFIG[judgment]
+    setScore(prevScore => prevScore + points)
+
+    if (judgment !== 'miss') {
+      setCombo(prevCombo => prevCombo + 1)
+    } else {
+      setCombo(0)
+    }
+
+    // 显示判定结果
+    setCurrentJudgment({
+      type: judgment,
+      points: points,
+      timestamp: Date.now()
+    })
+
+    // 记录判定历史
+    setJudgmentHistory(prev => [...prev.slice(-9), judgment])
+
+    // 移除被击中的块
+    setFallingChars(prevChars =>
+      prevChars.filter(block => block.id !== closestBlock.id)
+    )
+  }
+
+  // 键盘事件监听
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (!isAnimatingRef.current) return
+
+      const key = event.key.toUpperCase()
+      // 处理特殊键
+      const keyMap = {
+        'SEMICOLON': ';',
+        'COMMA': ',',
+        'PERIOD': '.',
+        'SLASH': '/'
+      }
+
+      const mappedKey = keyMap[key] || key
+      handleKeyPress(mappedKey)
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [fallingChars])
+
+  // 清除判定显示
+  useEffect(() => {
+    if (currentJudgment) {
+      const timer = setTimeout(() => {
+        setCurrentJudgment(null)
+      }, 1000)
+      return () => clearTimeout(timer)
+    }
+  }, [currentJudgment])
 
   // 创建新的下落矩形块
   const createFallingBlock = () => {
@@ -97,7 +214,7 @@ const RhythmGame = () => {
       y: startY,
       targetX: targetX,
       targetY: targetY,
-      speed: 2 + Math.random() * 2, // 随机速度 2-4
+      speed: 4 + Math.random() * 3, // 随机速度 4-7
       width: keyWidth,
       height: keyHeight,
       style: blockStyles[blockType]
@@ -134,15 +251,36 @@ const RhythmGame = () => {
             }
           })
           .filter(block => {
-            // 移除超出屏幕或到达目标的矩形块
+            // 检查是否超出判定区域（Miss）
+            const judgmentLineY = gameHeight - 56
+            const blockCenterY = block.y + block.height / 2
             const gameWidth = gameArea.offsetWidth
+
+            // 如果方块已经超出最大判定区域，记录为Miss
+            if (blockCenterY > judgmentLineY + JUDGMENT_ZONES.bad) {
+              // 记录Miss
+              setScore(prevScore => prevScore + SCORE_CONFIG.miss)
+              setCombo(0)
+              setJudgmentHistory(prev => [...prev.slice(-9), 'miss'])
+
+              // 显示Miss判定
+              setCurrentJudgment({
+                type: 'miss',
+                points: SCORE_CONFIG.miss,
+                timestamp: Date.now()
+              })
+
+              return false // 移除这个方块
+            }
+
+            // 移除超出屏幕的矩形块
             return block.y < gameHeight + 60 &&
               block.x > -block.width &&
               block.x < gameWidth + block.width
           })
 
         // 随机添加新矩形块
-        if (Math.random() < 0.3) { // 30%概率生成新矩形块
+        if (Math.random() < 0.12) { // 12%概率生成新矩形块
           const newBlock = createFallingBlock()
           if (newBlock) {
             updatedBlocks.push(newBlock)
@@ -159,7 +297,7 @@ const RhythmGame = () => {
 
       setFallingChars(prevChars => {
         // 如果矩形块太少，强制生成新矩形块
-        if (prevChars.length < 3) {
+        if (prevChars.length < 1) {
           const newBlock = createFallingBlock()
           return newBlock ? [...prevChars, newBlock] : prevChars
         }
@@ -256,16 +394,66 @@ const RhythmGame = () => {
           </div>
         </div>
 
-        {/* 游戏提示 */}
-        <div className="absolute top-10 left-0 right-0 flex items-center justify-center pointer-events-none">
-          <div className="text-center bg-white/90 backdrop-blur-sm rounded-xl p-6 border border-purple-200 shadow-lg">
-            <div className="text-3xl mb-2">🎹</div>
-            <h4 className="font-semibold text-purple-800 mb-2">键盘音游模式</h4>
-            <p className="text-sm text-purple-600">
-              字符块从上方下落，对准底部按键位置！
-            </p>
-            <p className="text-xs text-purple-500 mt-2">
-              涵盖全键盘 40 个字符 - 完美的打字练习！
+        {/* 游戏状态面板 */}
+        <div className="absolute top-4 left-4 right-4 flex justify-between items-start pointer-events-none z-10">
+          {/* 左侧：分数和连击 */}
+          <div className="bg-white/90 backdrop-blur-sm rounded-xl p-4 border border-purple-200 shadow-lg">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-purple-800 mb-1">
+                {score.toLocaleString()}
+              </div>
+              <div className="text-xs text-purple-600 mb-3">SCORE</div>
+
+              <div className="text-xl font-bold text-pink-600 mb-1">
+                {combo}
+              </div>
+              <div className="text-xs text-pink-500">COMBO</div>
+            </div>
+          </div>
+
+          {/* 右侧：判定历史 */}
+          <div className="bg-white/90 backdrop-blur-sm rounded-xl p-4 border border-purple-200 shadow-lg">
+            <div className="text-xs text-purple-600 mb-2 text-center">JUDGMENT</div>
+            <div className="flex gap-1">
+              {judgmentHistory.slice(-10).map((judgment, index) => (
+                <div
+                  key={index}
+                  className={`w-3 h-3 rounded-full ${judgment === 'perfect' ? 'bg-green-500' :
+                    judgment === 'good' ? 'bg-blue-500' :
+                      judgment === 'bad' ? 'bg-yellow-500' :
+                        'bg-red-500'
+                    }`}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* 判定结果显示 */}
+        {currentJudgment && (
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none z-20">
+            <div className={`text-center animate-bounce ${currentJudgment.type === 'perfect' ? 'text-green-500' :
+              currentJudgment.type === 'good' ? 'text-blue-500' :
+                currentJudgment.type === 'bad' ? 'text-yellow-500' :
+                  'text-red-500'
+              }`}>
+              <div className="text-4xl font-bold mb-2 drop-shadow-lg">
+                {currentJudgment.type.toUpperCase()}
+              </div>
+              <div className="text-2xl font-bold drop-shadow-lg">
+                +{currentJudgment.points}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 游戏提示（缩小并移到右下角） */}
+        <div className="absolute bottom-24 right-4 pointer-events-none">
+          <div className="text-center bg-white/90 backdrop-blur-sm rounded-xl p-3 border border-purple-200 shadow-lg">
+            <div className="text-xl mb-1">🎹</div>
+            <h4 className="font-semibold text-purple-800 text-sm mb-1">音游模式</h4>
+            <p className="text-xs text-purple-600">
+              按键击中下落方块！
             </p>
           </div>
         </div>
