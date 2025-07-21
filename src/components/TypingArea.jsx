@@ -16,12 +16,12 @@ const TypingArea = () => {
   
   const inputRef = React.useRef(null)
   
-  // 自动聚焦输入框
+  // 自动聚焦输入框（音游模式下不聚焦）
   React.useEffect(() => {
-    if (inputRef.current && !isFinished) {
+    if (inputRef.current && !isFinished && mode !== 'rhythm') {
       inputRef.current.focus()
     }
-  }, [currentText, isFinished])
+  }, [currentText, isFinished, mode])
   
   // 如果是音游模式，在所有hooks之后返回音游组件
   if (mode === 'rhythm') {
